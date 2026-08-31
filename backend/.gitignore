@@ -1,0 +1,7 @@
+webxpert.db
+.pytest_webxpert.db
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.env

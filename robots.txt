@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://japintos.github.io/webxpert/sitemap.xml
+
+# Recursos estáticos
+Allow: /assets/images/
+
+# Bloquear archivos de desarrollo
+Disallow: /node_modules/
+Disallow: *.log
+Disallow: *.md
+Disallow: /package.json
+Disallow: /package-lock.json
+Disallow: /.git/
+Disallow: /.github/ 

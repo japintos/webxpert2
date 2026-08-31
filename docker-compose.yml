@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: webxpert-db
+    environment:
+      POSTGRES_USER: webxpert
+      POSTGRES_PASSWORD: webxpert
+      POSTGRES_DB: webxpert
+    ports:
+      - "5432:5432"
+    volumes:
+      - webxpert_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webxpert -d webxpert"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: webxpert-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://webxpert:webxpert@db:5432/webxpert
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - full
+
+volumes:
+  webxpert_pg:

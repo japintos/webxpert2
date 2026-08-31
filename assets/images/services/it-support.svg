@@ -1,0 +1,50 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con gradiente -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4e23fc;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ff5722;stop-opacity:0.1" />
+    </linearGradient>
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4e23fc" />
+      <stop offset="100%" style="stop-color:#ff5722" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="320" height="320" fill="url(#bgGradient)" rx="20"/>
+  
+  <!-- Computadora desktop -->
+  <rect x="80" y="120" width="160" height="100" rx="8" fill="url(#iconGradient)" opacity="0.9"/>
+  <rect x="90" y="130" width="140" height="80" rx="4" fill="white" opacity="0.9"/>
+  <rect x="140" y="230" width="40" height="20" rx="4" fill="url(#iconGradient)" opacity="0.8"/>
+  
+  <!-- Notebook -->
+  <rect x="200" y="180" width="80" height="60" rx="6" fill="url(#iconGradient)" opacity="0.8"/>
+  <rect x="205" y="185" width="70" height="45" rx="3" fill="white" opacity="0.9"/>
+  <rect x="200" y="240" width="80" height="8" rx="4" fill="url(#iconGradient)" opacity="0.7"/>
+  
+  <!-- Impresora -->
+  <rect x="40" y="180" width="60" height="40" rx="6" fill="url(#iconGradient)" opacity="0.8"/>
+  <rect x="45" y="185" width="50" height="30" rx="3" fill="white" opacity="0.9"/>
+  <rect x="50" y="220" width="40" height="8" rx="4" fill="url(#iconGradient)" opacity="0.7"/>
+  
+  <!-- Iconos de herramientas -->
+  <circle cx="280" cy="80" r="20" fill="url(#iconGradient)" opacity="0.8"/>
+  <path d="M270 80h20M280 70v20" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Iconos de red -->
+  <circle cx="40" cy="80" r="15" fill="url(#iconGradient)" opacity="0.8"/>
+  <circle cx="60" cy="80" r="15" fill="url(#iconGradient)" opacity="0.8"/>
+  <circle cx="40" cy="100" r="15" fill="url(#iconGradient)" opacity="0.8"/>
+  <circle cx="60" cy="100" r="15" fill="url(#iconGradient)" opacity="0.8"/>
+  <line x1="55" y1="80" x2="45" y2="80" stroke="white" stroke-width="2"/>
+  <line x1="40" y1="85" x2="40" y2="95" stroke="white" stroke-width="2"/>
+  <line x1="60" y1="85" x2="60" y2="95" stroke="white" stroke-width="2"/>
+  <line x1="45" y1="100" x2="55" y2="100" stroke="white" stroke-width="2"/>
+  
+  <!-- Elementos decorativos -->
+  <circle cx="160" cy="60" r="8" fill="url(#iconGradient)" opacity="0.6"/>
+  <circle cx="180" cy="60" r="6" fill="url(#iconGradient)" opacity="0.4"/>
+  <circle cx="140" cy="60" r="6" fill="url(#iconGradient)" opacity="0.4"/>
+</svg>
