@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { MessageCircle, Send, X } from "lucide-react";
+import { Bot, Send, X } from "lucide-react";
+import logoSolito from "../../assets/images/logos/logo_solito2.jpg";
 import { apiBase } from "../admin/api/client";
 import { SafeMarkdown } from "./SafeMarkdown";
 
@@ -183,11 +184,19 @@ export function WebChatWidget() {
       {open && (
         <section className="mb-3 flex h-[min(520px,70vh)] w-[min(380px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 shadow-glow backdrop-blur">
           <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-100">Webxpert Assistant</p>
-              <p className="text-[11px] uppercase tracking-[0.16em] text-brand-400">
-                {status === "WAITING_HUMAN" || status === "HUMAN" ? "Un especialista continúa" : "Chat en vivo"}
-              </p>
+            <div className="flex items-center gap-3">
+              <span className="relative shrink-0">
+                <img src={logoSolito} alt="" className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20" />
+                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 text-slate-950">
+                  <Bot size={10} strokeWidth={2.5} />
+                </span>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-100">Asistente Webxpert</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-brand-400">
+                  {status === "WAITING_HUMAN" || status === "HUMAN" ? "Un especialista continúa" : "Te respondemos acá"}
+                </p>
+              </div>
             </div>
             <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1 text-slate-400 hover:text-white" aria-label="Cerrar chat">
               <X size={18} />
@@ -256,10 +265,27 @@ export function WebChatWidget() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-glow hover:bg-brand-500"
-        aria-label="Abrir chat de Webxpert"
+        className={`flex items-center gap-3 rounded-2xl bg-brand-600 text-white shadow-glow transition hover:bg-brand-500 ${
+          open ? "h-14 w-14 justify-center" : "py-1.5 pl-1.5 pr-4"
+        }`}
+        aria-label={open ? "Cerrar asistente de Webxpert" : "Abrir asistente de Webxpert"}
       >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
+        {open ? (
+          <X size={22} />
+        ) : (
+          <>
+            <span className="relative shrink-0">
+              <img src={logoSolito} alt="" className="h-11 w-11 rounded-xl object-cover ring-2 ring-white/25" />
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-400 text-slate-950 shadow">
+                <Bot size={12} strokeWidth={2.5} />
+              </span>
+            </span>
+            <span className="pr-1 text-left leading-tight">
+              <span className="block text-sm font-semibold">Asistente</span>
+              <span className="block text-[11px] font-medium text-indigo-100">¿En qué te ayudo?</span>
+            </span>
+          </>
+        )}
       </button>
     </div>
   );

@@ -46,6 +46,9 @@ export function DashboardPage() {
         <Link to="/admin/conocimiento" className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold">
           Editar conocimiento
         </Link>
+        <Link to="/admin/ayuda" className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold">
+          Ayuda / manual
+        </Link>
       </div>
     </div>
   );

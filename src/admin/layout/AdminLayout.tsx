@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Bot,
+  CircleHelp,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -20,6 +21,7 @@ const links = [
   { to: "/admin/servicios", label: "Servicios", icon: Settings },
   { to: "/admin/precios", label: "Precios", icon: Tag },
   { to: "/admin/assistant", label: "Assistant", icon: Bot },
+  { to: "/admin/ayuda", label: "Ayuda", icon: CircleHelp },
 ];
 
 export function AdminLayout() {
@@ -63,8 +65,11 @@ export function AdminLayout() {
         </button>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-white/10 bg-ink/80 px-6 py-4 backdrop-blur md:hidden">
+        <header className="flex items-center justify-between border-b border-white/10 bg-ink/80 px-6 py-4 backdrop-blur md:hidden">
           <p className="text-sm font-semibold">webXpert Assistant</p>
+          <NavLink to="/admin/ayuda" className="text-sm text-brand-300">
+            Ayuda
+          </NavLink>
         </header>
         <main className="flex-1 overflow-auto p-6">
           <Outlet />

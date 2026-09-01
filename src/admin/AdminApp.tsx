@@ -4,6 +4,7 @@ import { AdminLayout } from "./layout/AdminLayout";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ConversationsPage } from "./pages/ConversationsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { HelpPage } from "./pages/HelpPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
 import { LeadsPage } from "./pages/LeadsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -30,6 +31,7 @@ export default function AdminApp() {
           <Route path="servicios" element={<ServicesPage />} />
           <Route path="precios" element={<PricingPage />} />
           <Route path="assistant" element={<AssistantPage />} />
+          <Route path="ayuda" element={<HelpPage />} />
         </Route>
       </Route>
     </Routes>
