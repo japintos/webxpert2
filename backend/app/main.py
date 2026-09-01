@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -64,7 +67,22 @@ def create_app() -> FastAPI:
 
     app.include_router(chat_router, prefix="/api/v1")
     app.include_router(v1_router, prefix="/api/v1")
+    _mount_frontend(app)
     return app
+
+
+def _frontend_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "frontend_dist"
+
+
+def _mount_frontend(app: FastAPI) -> None:
+    dist = _frontend_dir()
+    index = dist / "index.html"
+    if not index.is_file():
+        logger.info("frontend dist not found at %s", dist)
+        return
+    app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
+    logger.info("serving frontend from %s", dist)
 
 
 app = create_app()

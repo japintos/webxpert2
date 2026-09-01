@@ -1,5 +1,18 @@
+import os
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def cors_origin_from_host(value: str | None) -> str | None:
+    if not value:
+        return None
+    raw = value.strip().rstrip("/")
+    if not raw:
+        return None
+    if "://" in raw:
+        return raw
+    return f"https://{raw}"
 
 
 def normalize_database_url(url: str) -> str:
@@ -61,7 +74,18 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [item.strip() for item in self.CORS_ORIGINS.split(",") if item.strip()]
+        items: list[str] = []
+        seen: set[str] = set()
+        candidates = [part.strip().rstrip("/") for part in self.CORS_ORIGINS.split(",") if part.strip()]
+        for extra in (os.getenv("RAILWAY_PUBLIC_DOMAIN"), os.getenv("RAILWAY_STATIC_URL")):
+            origin = cors_origin_from_host(extra)
+            if origin:
+                candidates.append(origin)
+        for item in candidates:
+            if item not in seen:
+                seen.add(item)
+                items.append(item)
+        return items
 
     @property
     def is_production(self) -> bool:

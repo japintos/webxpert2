@@ -1,5 +1,3 @@
-# Producción en Railway usa el railway.toml de la raíz del repo (sitio + API).
-# En el servicio: Root Directory vacío, no "backend".
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
