@@ -117,3 +117,30 @@ def test_closing_conversation_hides_history_from_visitor(client, auth_headers):
     detail = client.get(f"/api/v1/conversations/{conversation_id}", headers=auth_headers)
     assert detail.status_code == 200
     assert detail.json()["messages"] == []
+
+
+def test_chat_handoff_offers_whatsapp_agents(client):
+    visitor_id = "cccccccc-dddd-eeee-ffff-000000000000"
+    client.post(
+        "/api/v1/chat/messages",
+        json={
+            "visitor_id": visitor_id,
+            "intake": True,
+            "first_name": "Ana",
+            "last_name": "Gómez",
+            "contact_phone": "3765050111",
+        },
+    )
+    response = client.post(
+        "/api/v1/chat/messages",
+        json={"visitor_id": visitor_id, "text": "Quiero hablar con alguien"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["handoff"] is True
+    outbound = [item["content"] for item in body["messages"] if item["direction"] == "OUTBOUND"]
+    text = "\n".join(outbound)
+    assert "wa.me/5493764724207" in text
+    assert "wa.me/5493765050885" in text
+    assert "Ana" in text
+    assert "3765050111" in text

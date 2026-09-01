@@ -95,6 +95,8 @@ class MessageProcessor:
                     .order_by(Message.created_at)
                 )
             ),
+            contact_name=contact.name,
+            contact_mobile=contact.mobile,
         )
 
         inbound.intent = result.intent

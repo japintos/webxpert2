@@ -529,7 +529,7 @@ function NosotrosPage() {
         { label: "Facebook", url: "https://www.facebook.com/julioapintos" },
         { label: "Instagram", url: "https://www.instagram.com/julioapintos" },
         { label: "LinkedIn", url: "https://www.linkedin.com/in/julio-pintos-0638a8200/" },
-        { label: "WhatsApp", url: "https://wa.me/543764724207" },
+        { label: "WhatsApp", url: "https://wa.me/5493764724207" },
       ],
     },
     {
@@ -542,7 +542,7 @@ function NosotrosPage() {
         { label: "Facebook", url: "https://www.facebook.com/profile.php?id=61564704710500" },
         { label: "Instagram", url: "https://www.instagram.com/gree.dev/" },
         { label: "LinkedIn", url: "https://www.linkedin.com/in/agust%C3%ADn-burgos-987b6130b/" },
-        { label: "WhatsApp", url: "https://wa.me/543764724207" },
+        { label: "WhatsApp", url: "https://wa.me/5493765050885" },
       ],
     },
   ];
@@ -600,7 +600,7 @@ function ContactoPage() {
         <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-6">
           <h3 className="text-xl font-semibold">Información de contacto</h3>
           <div className="mt-4 space-y-3 text-slate-300">
-            <p><strong>Teléfono:</strong> <a href="tel:+543764724207" className="text-brand-300">+54 9 3764724207</a></p>
+            <p><strong>Teléfono:</strong> <a href="tel:+5493764724207" className="text-brand-300">+54 9 3764724207</a></p>
             <p><strong>Email:</strong> <a href="mailto:julioapintos1@gmail.com" className="text-brand-300">julioapintos1@gmail.com</a></p>
             <p><strong>Ubicación:</strong> Posadas, Misiones</p>
           </div>

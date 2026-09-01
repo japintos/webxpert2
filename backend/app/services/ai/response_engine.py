@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from app.core.logging import logger
 from app.models.assistant import Assistant
 from app.models.intent import Intent
@@ -20,10 +22,33 @@ from app.services.ai.price_guard import (
 from app.services.ai.provider import AINotConfiguredError, AIProvider
 from app.services.ai.summarizer import ConversationSummarizer
 
-HANDOFF_REPLY = (
-    "Para este caso específico prefiero que uno de nuestros especialistas lo revise. "
-    "Si querés, derivo la conversación a nuestro equipo."
+WHATSAPP_AGENTS = (
+    ("Julio Pintos", "5493764724207"),
+    ("Agustín Burgos", "5493765050885"),
 )
+
+
+def handoff_reply(*, contact_name: str | None = None, contact_mobile: str | None = None) -> str:
+    full_name = (contact_name or "").strip()
+    phone = (contact_mobile or "").strip()
+    lines = [
+        "Perfecto. Podés continuar ahora mismo por WhatsApp con un especialista de Webxpert.",
+        "Elegí con quién querés hablar (se abre la app):",
+        "",
+    ]
+    for agent_name, number in WHATSAPP_AGENTS:
+        first = agent_name.split()[0]
+        parts = [f"Hola {first}, te contacto desde el chat de Webxpert."]
+        if full_name:
+            parts.append(f"Soy {full_name}.")
+        if phone:
+            parts.append(f"Mi teléfono es {phone}.")
+        url = f"https://wa.me/{number}?text={quote(' '.join(parts))}"
+        lines.append(f"- [WhatsApp de {agent_name}]({url})")
+    return "\n".join(lines)
+
+
+HANDOFF_REPLY = handoff_reply()
 
 FALLBACK_REPLY = (
     "No quiero darte información incorrecta sobre eso. "
@@ -66,6 +91,8 @@ class ResponseEngine:
         prices: list[Pricing],
         services: list[Service],
         history: list[Message],
+        contact_name: str | None = None,
+        contact_mobile: str | None = None,
     ) -> EngineResult:
         lead_score, interest = self.lead_detector.detect(text)
         match = self.classifier.classify(text, intents, threshold=assistant.intent_threshold)
@@ -80,7 +107,7 @@ class ResponseEngine:
         if wants_human and assistant.human_handoff_enabled:
             logger.info("human_handoff reason=user_or_intent")
             return EngineResult(
-                reply=HANDOFF_REPLY,
+                reply=handoff_reply(contact_name=contact_name, contact_mobile=contact_mobile),
                 intent=match.slug if match else "human_agent",
                 confidence=match.confidence if match else 1.0,
                 ai_generated=False,
@@ -150,7 +177,7 @@ class ResponseEngine:
         if assistant.human_handoff_enabled:
             logger.info("human_handoff reason=unknown")
             return EngineResult(
-                reply=HANDOFF_REPLY,
+                reply=handoff_reply(contact_name=contact_name, contact_mobile=contact_mobile),
                 intent=match.slug if match else "unknown",
                 confidence=match.confidence if match else 0.0,
                 ai_generated=False,

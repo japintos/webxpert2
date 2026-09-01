@@ -4,7 +4,7 @@ from app.models.knowledge import KnowledgeCategory, KnowledgeItem
 from app.models.pricing import PriceType, Pricing
 from app.models.service import Service
 from app.seed_data import DEFAULT_SYSTEM_PROMPT
-from app.services.ai.response_engine import HANDOFF_REPLY, ResponseEngine
+from app.services.ai.response_engine import ResponseEngine, handoff_reply
 
 
 def _assistant(**kwargs) -> Assistant:
@@ -61,7 +61,10 @@ def test_unknown_triggers_handoff():
         history=[],
     )
     assert result.handoff is True
-    assert result.reply == HANDOFF_REPLY
+    assert "wa.me/5493764724207" in result.reply
+    assert "wa.me/5493765050885" in result.reply
+    assert "Julio" in result.reply
+    assert "Agustín" in result.reply or "Agustin" in result.reply
 
 
 def test_human_request_handoff():
@@ -86,7 +89,17 @@ def test_human_request_handoff():
         history=[],
     )
     assert result.handoff is True
-    assert "especialistas" in result.reply.lower() or "equipo" in result.reply.lower()
+    assert "WhatsApp" in result.reply
+    assert "5493764724207" in result.reply
+    assert "5493765050885" in result.reply
+
+
+def test_handoff_reply_includes_visitor_data():
+    reply = handoff_reply(contact_name="Ana Gómez", contact_mobile="3765050885")
+    assert "Ana" in reply
+    assert "3765050885" in reply
+    assert "wa.me/5493764724207?text=" in reply
+    assert "wa.me/5493765050885?text=" in reply
 
 
 def test_custom_system_does_not_invent_price():
