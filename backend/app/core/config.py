@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.6-flash"
+    LLM_MAX_OUTPUT_TOKENS: int = 1536
 
     LOG_LEVEL: str = "INFO"
     LOG_MESSAGE_BODY: bool = False

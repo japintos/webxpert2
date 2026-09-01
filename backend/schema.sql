@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS contacts (
     tenant_id UUID NOT NULL REFERENCES tenants (id),
     phone VARCHAR(64) NOT NULL,
     name VARCHAR(160),
+    last_name VARCHAR(160),
+    mobile VARCHAR(32),
     email VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

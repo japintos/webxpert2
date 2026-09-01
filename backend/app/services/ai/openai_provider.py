@@ -36,7 +36,7 @@ class OpenAIProvider(AIProvider):
         response = client.chat.completions.create(
             model=self._model,
             temperature=temperature,
-            max_tokens=420,
+            max_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
             messages=payload,
         )
         text = (response.choices[0].message.content or "").strip()

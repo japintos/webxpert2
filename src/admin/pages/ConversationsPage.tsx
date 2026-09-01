@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { SafeMarkdown } from "../../chat/SafeMarkdown";
 import { api } from "../api/client";
 import type { Conversation, Message } from "../api/types";
 
@@ -19,10 +20,10 @@ export function ConversationsPage() {
   const [simText, setSimText] = useState("");
   const [error, setError] = useState("");
 
-  async function loadList(selectId?: string) {
+  async function loadList(selectId?: string | null) {
     const data = await api<Conversation[]>("/api/v1/conversations");
     setItems(data);
-    const next = selectId || selectedId || data[0]?.id || null;
+    const next = selectId === null ? null : selectId || selectedId || data[0]?.id || null;
     setSelectedId(next);
     if (next) {
       const full = await api<Conversation>(`/api/v1/conversations/${next}`);
@@ -70,6 +71,11 @@ export function ConversationsPage() {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
+    if (status === "CLOSED") {
+      setDraft("");
+      await loadList(null);
+      return;
+    }
     await loadList(selectedId);
   }
 
@@ -95,11 +101,13 @@ export function ConversationsPage() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold">{item.contact?.name || item.contact?.phone || "Contacto"}</p>
+                <p className="font-semibold">{item.contact?.name || "Contacto"}</p>
                 {item.needs_human && <span className="text-[11px] font-semibold text-amber-300">Humano</span>}
               </div>
-              <p className="truncate text-xs text-slate-400">{item.contact?.phone}</p>
-              <p className="mt-1 truncate text-sm text-slate-300">{item.last_message}</p>
+              <p className="truncate text-xs text-slate-400">{item.contact?.mobile || "Sin teléfono"}</p>
+              <p className="mt-1 truncate text-sm text-slate-300">
+                {item.status === "CLOSED" ? "Conversación cerrada" : item.last_message}
+              </p>
               <div className="mt-1 flex gap-2 text-[11px] text-slate-400">
                 <span>{statusLabel[item.status]}</span>
                 <span>{item.channel === "web" ? "Web" : item.channel}</span>
@@ -114,7 +122,7 @@ export function ConversationsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
                 <div>
                   <h2 className="text-lg font-semibold">{detail.contact?.name || "Contacto"}</h2>
-                  <p className="text-sm text-slate-400">{detail.contact?.phone}</p>
+                  <p className="text-sm text-slate-400">{detail.contact?.mobile || "Sin teléfono"}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => patchStatus("HUMAN")} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold">
@@ -129,6 +137,11 @@ export function ConversationsPage() {
                 </div>
               </div>
               <div className="flex-1 space-y-3 overflow-auto p-5">
+                {messages.length === 0 && (
+                  <p className="text-sm text-slate-400">
+                    {detail.status === "CLOSED" ? "Conversación cerrada. El chat quedó limpio." : "Todavía no hay mensajes."}
+                  </p>
+                )}
                 {messages.map((message) => (
                   <div
                     key={message.id}
@@ -143,10 +156,11 @@ export function ConversationsPage() {
                       {message.ai_generated ? " · IA" : ""}
                       {message.intent ? ` · ${message.intent}` : ""}
                     </p>
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <SafeMarkdown text={message.content} />
                   </div>
                 ))}
               </div>
+              {detail.status !== "CLOSED" && (
               <form onSubmit={sendReply} className="border-t border-white/10 p-4">
                 <div className="flex gap-2">
                   <input
@@ -160,6 +174,7 @@ export function ConversationsPage() {
                   </button>
                 </div>
               </form>
+              )}
             </>
           ) : (
             <p className="p-6 text-sm text-slate-400">Seleccioná una conversación o simulá un mensaje.</p>

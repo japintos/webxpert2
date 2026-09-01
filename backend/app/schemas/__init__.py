@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class ORMModel(BaseModel):
@@ -155,6 +155,8 @@ class ContactOut(ORMModel):
     id: UUID
     phone: str
     name: str | None
+    last_name: str | None = None
+    mobile: str | None = None
     email: str | None
     created_at: datetime
     updated_at: datetime
@@ -242,7 +244,20 @@ class ChatSendRequest(BaseModel):
     visitor_id: str = Field(min_length=8, max_length=64)
     visitor_token: str | None = None
     name: str | None = Field(default=None, max_length=160)
-    text: str = Field(min_length=1, max_length=4000)
+    first_name: str | None = Field(default=None, max_length=80)
+    last_name: str | None = Field(default=None, max_length=80)
+    contact_phone: str | None = Field(default=None, max_length=32)
+    text: str = Field(default="", max_length=4000)
+    intake: bool = False
+
+    @model_validator(mode="after")
+    def validate_chat_payload(self):
+        if self.intake:
+            if not (self.first_name or "").strip() or not (self.last_name or "").strip() or not (self.contact_phone or "").strip():
+                raise ValueError("Nombre, apellido y teléfono son obligatorios")
+        elif not (self.text or "").strip():
+            raise ValueError("El mensaje no puede estar vacío")
+        return self
 
 
 class ChatHistoryQuery(BaseModel):

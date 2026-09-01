@@ -75,7 +75,7 @@ KNOWLEDGE = [
         "title": "¿Cuánto cuesta una web?",
         "content": (
             "Los valores de referencia en USD son estimativos y se ajustan al alcance: "
-            "Landing Page USD 350-600; Sitio institucional USD 700-1.200. "
+            "Landing Page USD 210-360; Sitio institucional USD 420-720. "
             "No son presupuestos finales: dependen de secciones, funcionalidades y contenidos."
         ),
         "keywords": ["precio", "cuesta", "sale", "web", "pagina", "landing", "institucional"],
@@ -278,31 +278,31 @@ SERVICES = [
     {
         "name": "Web institucional",
         "description": "Web corporativa de 3 a 6 secciones, adaptable y escalable.",
-        "starting_price": "USD 700 - 1.200",
+        "starting_price": "USD 420 - 720",
         "category": "web",
     },
     {
         "name": "Landing Page",
         "description": "Página única optimizada para conversión y performance.",
-        "starting_price": "USD 350 - 600",
+        "starting_price": "USD 210 - 360",
         "category": "web",
     },
     {
         "name": "E-commerce",
         "description": "Tienda online con carrito, pasarela de pago y panel de gestión.",
-        "starting_price": "USD 1.200 - 2.000",
+        "starting_price": "USD 720 - 1.200",
         "category": "commerce",
     },
     {
         "name": "Sistema web personalizado",
         "description": "Desarrollo a medida según procesos del cliente.",
-        "starting_price": "Desde USD 2.000",
+        "starting_price": "Desde USD 1.200",
         "category": "software",
     },
     {
         "name": "Aplicaciones empresariales",
         "description": "ERP, CRM o paneles internos para administración y control.",
-        "starting_price": "USD 2.500 - 4.000",
+        "starting_price": "USD 1.500 - 2.400",
         "category": "software",
     },
     {
@@ -333,6 +333,18 @@ SERVICES = [
         "price_visible": False,
         "category": "support",
     },
+]
+
+PRICE_ROWS = [
+    ("Landing Page", 210, 360, PriceType.STARTING_FROM, "Rango estimativo en USD."),
+    ("Web institucional", 420, 720, PriceType.STARTING_FROM, "Rango estimativo en USD."),
+    ("E-commerce", 720, 1200, PriceType.STARTING_FROM, "Rango estimativo en USD."),
+    ("Sistema web personalizado", 1200, None, PriceType.STARTING_FROM, "Desde USD 1.200 según alcance."),
+    ("Aplicaciones empresariales", 1500, 2400, PriceType.STARTING_FROM, "Rango estimativo en USD."),
+    ("Automatizaciones", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
+    ("Integraciones", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
+    ("IA", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
+    ("Mantenimiento", None, None, PriceType.ON_REQUEST, "Según el producto publicado."),
 ]
 
 
@@ -376,15 +388,20 @@ def seed(db: Session) -> None:
     if not db.scalar(select(KnowledgeItem).where(KnowledgeItem.tenant_id == tenant.id)):
         for item in KNOWLEDGE:
             db.add(KnowledgeItem(tenant_id=tenant.id, **item))
+    else:
+        _sync_pricing_knowledge(db, tenant.id)
 
     if not db.scalar(select(Intent).where(Intent.tenant_id == tenant.id)):
         for item in INTENTS:
             db.add(Intent(tenant_id=tenant.id, **item))
 
-    existing_services = list(db.scalars(select(Service).where(Service.tenant_id == tenant.id)))
-    if not existing_services:
-        created: dict[str, Service] = {}
-        for item in SERVICES:
+    by_name: dict[str, Service] = {
+        service.name: service
+        for service in db.scalars(select(Service).where(Service.tenant_id == tenant.id))
+    }
+    for item in SERVICES:
+        service = by_name.get(item["name"])
+        if not service:
             service = Service(
                 tenant_id=tenant.id,
                 name=item["name"],
@@ -396,21 +413,20 @@ def seed(db: Session) -> None:
             )
             db.add(service)
             db.flush()
-            created[service.name] = service
+            by_name[service.name] = service
+        else:
+            service.starting_price = item.get("starting_price")
+            service.price_visible = item.get("price_visible", True)
 
-        price_rows = [
-            ("Landing Page", 350, 600, PriceType.STARTING_FROM, "Rango estimativo en USD."),
-            ("Web institucional", 700, 1200, PriceType.STARTING_FROM, "Rango estimativo en USD."),
-            ("E-commerce", 1200, 2000, PriceType.STARTING_FROM, "Rango estimativo en USD."),
-            ("Sistema web personalizado", 2000, None, PriceType.STARTING_FROM, "Desde USD 2.000 según alcance."),
-            ("Aplicaciones empresariales", 2500, 4000, PriceType.STARTING_FROM, "Rango estimativo en USD."),
-            ("Automatizaciones", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
-            ("Integraciones", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
-            ("IA", None, None, PriceType.ON_REQUEST, "Requiere evaluación."),
-            ("Mantenimiento", None, None, PriceType.ON_REQUEST, "Según el producto publicado."),
-        ]
-        for name, price, price_max, price_type, description in price_rows:
-            service = created[name]
+    for name, price, price_max, price_type, description in PRICE_ROWS:
+        service = by_name[name]
+        row = db.scalar(select(Pricing).where(Pricing.tenant_id == tenant.id, Pricing.service_id == service.id))
+        if row:
+            row.price = price
+            row.price_max = price_max
+            row.price_type = price_type
+            row.description = description
+        else:
             db.add(
                 Pricing(
                     tenant_id=tenant.id,
@@ -425,6 +441,18 @@ def seed(db: Session) -> None:
             )
 
     db.commit()
+
+
+def _sync_pricing_knowledge(db: Session, tenant_id) -> None:
+    content = next(item["content"] for item in KNOWLEDGE if item["title"] == "¿Cuánto cuesta una web?")
+    item = db.scalar(
+        select(KnowledgeItem).where(
+            KnowledgeItem.tenant_id == tenant_id,
+            KnowledgeItem.title == "¿Cuánto cuesta una web?",
+        )
+    )
+    if item:
+        item.content = content
 
 
 def main() -> None:

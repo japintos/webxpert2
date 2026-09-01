@@ -44,7 +44,7 @@ class GeminiProvider(AIProvider):
             "contents": contents,
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 420,
+                "maxOutputTokens": settings.LLM_MAX_OUTPUT_TOKENS,
             },
         }
         url = GEMINI_URL.format(model=self._model)

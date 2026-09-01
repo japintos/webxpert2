@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 from app.core.rate_limit import limiter
 from app.core.security import create_visitor_token, decode_visitor_token
 from app.db.session import get_db
-from app.models.conversation import Conversation
+from app.models.conversation import Conversation, ConversationStatus
 from app.models.message import Message
 from app.schemas import ChatSendRequest, MessageOut
-from app.services.conversations import MessageProcessor
+from app.services.conversations import ContactRequiredError, MessageProcessor
 
 router = APIRouter()
 
@@ -23,6 +23,13 @@ def _visitor_phone(visitor_id: str) -> str:
     if any(ch in clean for ch in (" ", "/", "\\", "\n")):
         raise HTTPException(status_code=422, detail="Visitante inválido")
     return f"web:{clean}"
+
+
+def _normalize_mobile(raw: str) -> str:
+    cleaned = "".join(ch for ch in raw.strip() if ch.isdigit() or ch == "+")
+    if len(cleaned) < 8 or len(cleaned) > 20:
+        raise HTTPException(status_code=422, detail="Teléfono inválido")
+    return cleaned
 
 
 def _message_out(message: Message) -> dict:
@@ -52,31 +59,73 @@ def _load_from_token(db: Session, token: str) -> Conversation:
     return conversation
 
 
+def _visible_messages(db: Session, conversation: Conversation) -> list[Message]:
+    if conversation.status == ConversationStatus.CLOSED:
+        return []
+    return list(
+        db.scalars(select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at))
+    )
+
+
+def _chat_payload(*, visitor_id: str, conversation: Conversation, messages: list[Message], handoff: bool = False) -> dict:
+    return {
+        "visitor_id": visitor_id,
+        "visitor_token": create_visitor_token(visitor_id=visitor_id, conversation_id=conversation.id),
+        "conversation_id": str(conversation.id),
+        "status": conversation.status.value,
+        "bot_enabled": conversation.bot_enabled,
+        "handoff": handoff,
+        "messages": [_message_out(item) for item in messages],
+    }
+
+
 @router.post("/chat/messages")
 @limiter.limit("30/minute")
 def send_chat_message(request: Request, payload: ChatSendRequest, db: Session = Depends(get_db)):
     visitor_id = payload.visitor_id.strip()
     processor = MessageProcessor(db)
-    conversation, _inbound, _outbound, result = processor.process_inbound(
-        phone=_visitor_phone(visitor_id),
-        text=payload.text.strip(),
-        name=(payload.name or "Visitante web").strip(),
-        channel="web",
-    )
+    phone = _visitor_phone(visitor_id)
 
-    token = create_visitor_token(visitor_id=visitor_id, conversation_id=conversation.id)
-    messages = list(
-        db.scalars(select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at))
+    if payload.intake:
+        conversation, _outbound = processor.register_intake(
+            phone=phone,
+            first_name=(payload.first_name or "").strip(),
+            last_name=(payload.last_name or "").strip(),
+            mobile=_normalize_mobile(payload.contact_phone or ""),
+            channel="web",
+        )
+        return _chat_payload(
+            visitor_id=visitor_id,
+            conversation=conversation,
+            messages=_visible_messages(db, conversation),
+        )
+
+    try:
+        conversation, _inbound, _outbound, result = processor.process_inbound(
+            phone=phone,
+            text=payload.text.strip(),
+            name=" ".join(
+                part for part in ((payload.first_name or "").strip(), (payload.last_name or "").strip()) if part
+            )
+            or (payload.name or "").strip()
+            or None,
+            last_name=(payload.last_name or "").strip() or None,
+            mobile=_normalize_mobile(payload.contact_phone) if payload.contact_phone else None,
+            channel="web",
+            require_profile=True,
+        )
+    except ContactRequiredError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Para empezar, necesitamos tu nombre, apellido y teléfono.",
+        ) from exc
+
+    return _chat_payload(
+        visitor_id=visitor_id,
+        conversation=conversation,
+        messages=_visible_messages(db, conversation),
+        handoff=bool(result.handoff) if result else False,
     )
-    return {
-        "visitor_id": visitor_id,
-        "visitor_token": token,
-        "conversation_id": str(conversation.id),
-        "status": conversation.status.value,
-        "bot_enabled": conversation.bot_enabled,
-        "handoff": bool(result.handoff) if result else False,
-        "messages": [_message_out(item) for item in messages],
-    }
 
 
 @router.get("/chat/messages")
@@ -87,9 +136,7 @@ def list_chat_messages(
     db: Session = Depends(get_db),
 ):
     conversation = _load_from_token(db, visitor_token)
-    messages = list(
-        db.scalars(select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at))
-    )
+    messages = _visible_messages(db, conversation)
     return {
         "conversation_id": str(conversation.id),
         "status": conversation.status.value,

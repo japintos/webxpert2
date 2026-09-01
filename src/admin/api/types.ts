@@ -10,6 +10,8 @@ export type Contact = {
   id: string;
   phone: string;
   name: string | null;
+  last_name: string | null;
+  mobile: string | null;
   email: string | null;
 };
 

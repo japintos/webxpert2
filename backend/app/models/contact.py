@@ -15,6 +15,8 @@ class Contact(Base):
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id"), index=True)
     phone: Mapped[str] = mapped_column(String(64), index=True)
     name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(32), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

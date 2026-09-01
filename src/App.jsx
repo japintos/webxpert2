@@ -123,37 +123,37 @@ const pricingItems = [
   {
     service: "Landing Page",
     description: "Página única optimizada para conversión y performance. Ideal para campañas o lanzamientos.",
-    price: "$350 - $600",
+    price: "$210 - $360",
   },
   {
     service: "Sitio Institucional",
     description: "Web corporativa de 3 a 6 secciones, adaptable y escalable.",
-    price: "$700 - $1.200",
+    price: "$420 - $720",
   },
   {
     service: "E-Commerce",
     description: "Tienda online con carrito, pasarela de pago y panel de gestión.",
-    price: "$1.200 - $2.000",
+    price: "$720 - $1.200",
   },
   {
     service: "Soluciones a medida",
     description: "Desarrollo personalizado según requerimientos del cliente.",
-    price: "Desde $2.000",
+    price: "Desde $1.200",
   },
   {
     service: "Sistemas de gestión",
     description: "ERP, CRM o paneles internos para administración y control.",
-    price: "$2.500 - $4.000",
+    price: "$1.500 - $2.400",
   },
   {
     service: "Auditorías web",
     description: "Análisis técnico, UX y performance con informe detallado.",
-    price: "$250 - $500",
+    price: "$150 - $300",
   },
   {
     service: "SEO & Optimización",
     description: "Mejora de posicionamiento orgánico y velocidad de carga.",
-    price: "$300 - $800",
+    price: "$180 - $480",
   },
 ];
 
@@ -619,10 +619,10 @@ function ContactoPage() {
             </select>
             <select name="presupuesto" className="w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 text-sm">
               <option value="">Presupuesto estimado</option>
-              <option value="1000-3000">$1,000 - $3,000</option>
-              <option value="3000-5000">$3,000 - $5,000</option>
-              <option value="5000-10000">$5,000 - $10,000</option>
-              <option value="10000+">Más de $10,000</option>
+              <option value="600-1800">$600 - $1,800</option>
+              <option value="1800-3000">$1,800 - $3,000</option>
+              <option value="3000-6000">$3,000 - $6,000</option>
+              <option value="6000+">Más de $6,000</option>
             </select>
             <textarea name="mensaje" required rows={5} placeholder="Descripción del proyecto..." className="w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 text-sm" />
             <ValidationError prefix="Mensaje" field="mensaje" errors={state.errors} className="text-xs text-rose-400" />

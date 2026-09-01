@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import apply_updates, get_current_user, get_db
@@ -524,6 +524,9 @@ def patch_conversation(
             data["assigned_to"] = user.id
         if data["status"] == ConversationStatus.BOT:
             data["bot_enabled"] = True
+        if data["status"] == ConversationStatus.CLOSED:
+            data["bot_enabled"] = False
+            db.execute(delete(Message).where(Message.conversation_id == item.id))
     apply_updates(item, data)
     db.commit()
     db.refresh(item)
