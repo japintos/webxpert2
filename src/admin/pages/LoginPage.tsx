@@ -1,12 +1,14 @@
 import { FormEvent, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import logoSolito from "../../../assets/images/logos/logo_solito2.jpg";
 import { api, setToken } from "../api/client";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@webxpert.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +35,7 @@ export function LoginPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,.22),transparent_40%),radial-gradient(circle_at_70%_70%,rgba(34,211,238,.16),transparent_40%)]" />
       <form
         onSubmit={onSubmit}
+        autoComplete="off"
         className="relative w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/80 p-8 shadow-glow"
       >
         <div className="mb-6 flex items-center gap-3">
@@ -46,21 +49,38 @@ export function LoginPage() {
           Email
           <input
             type="email"
+            name="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 text-sm"
             required
           />
         </label>
         <label className="mb-4 block text-sm">
           Contraseña
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 text-sm"
-            required
-          />
+          <span className="relative mt-1 block">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 pr-10 text-sm"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-white"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </span>
         </label>
         {error && <p className="mb-3 text-sm text-rose-400">{error}</p>}
         <button
