@@ -1,9 +1,13 @@
+from uuid import uuid4
+
 from app.models.assistant import Assistant
 from app.models.intent import Intent
 from app.models.knowledge import KnowledgeCategory, KnowledgeItem
+from app.models.message import Message, MessageDirection
 from app.models.pricing import PriceType, Pricing
 from app.models.service import Service
 from app.seed_data import DEFAULT_SYSTEM_PROMPT
+from app.services.ai.provider import AIProvider
 from app.services.ai.response_engine import ResponseEngine, handoff_reply
 
 
@@ -173,3 +177,269 @@ def test_knowledge_retrieval_for_mercado_pago():
     )
     assert "Mercado Pago" in result.reply
     assert result.ai_generated is False
+
+
+def _outbound(content: str) -> Message:
+    return Message(
+        conversation_id=uuid4(),
+        tenant_id=uuid4(),
+        direction=MessageDirection.OUTBOUND,
+        sender="assistant",
+        content=content,
+        message_type="text",
+    )
+
+
+class _FakeProvider(AIProvider):
+    def __init__(self, reply: str) -> None:
+        self.reply = reply
+        self.calls: list[dict] = []
+
+    @property
+    def name(self) -> str:
+        return "fake"
+
+    def generate(self, *, system_prompt: str, messages: list[dict[str, str]], temperature: float = 0.3) -> str:
+        self.calls.append(
+            {"system_prompt": system_prompt, "messages": messages, "temperature": temperature}
+        )
+        return self.reply
+
+
+def test_same_faq_does_not_repeat_verbatim():
+    engine = ResponseEngine()
+    template = "¡Claro! Podemos ayudarte con eso. ¿Informativa o con funciones?"
+    intents = [
+        Intent(
+            slug="services_web",
+            name="web",
+            keywords=["quiero una pagina", "necesito una web", "pagina para mi empresa"],
+            response_template=template,
+            active=True,
+            weight=1.3,
+        )
+    ]
+    first = engine.generate(
+        text="Hola, necesito una página para mi empresa.",
+        assistant=_assistant(fallback_enabled=False),
+        intents=intents,
+        knowledge=[],
+        prices=[],
+        services=[],
+        history=[],
+    )
+    second = engine.generate(
+        text="Hola, necesito una página para mi empresa.",
+        assistant=_assistant(fallback_enabled=False),
+        intents=intents,
+        knowledge=[],
+        prices=[],
+        services=[],
+        history=[_outbound(first.reply)],
+    )
+    assert first.reply == template
+    assert second.reply != first.reply
+    assert "Claro" in second.reply
+
+
+def test_duplicate_knowledge_uses_next_hit():
+    engine = ResponseEngine()
+    first_content = "Podemos evaluar la integración con Mercado Pago según el sistema actual."
+    second_content = "También revisamos cobros, suscripciones y el flujo de checkout con Mercado Pago."
+    knowledge = [
+        KnowledgeItem(
+            category=KnowledgeCategory.TECHNICAL,
+            title="Integrar Mercado Pago",
+            content=first_content,
+            keywords=["mercado pago", "integrar"],
+            active=True,
+            priority=10,
+        ),
+        KnowledgeItem(
+            category=KnowledgeCategory.TECHNICAL,
+            title="Cobros Mercado Pago",
+            content=second_content,
+            keywords=["mercado pago", "integrar"],
+            active=True,
+            priority=5,
+        ),
+    ]
+    intents = [
+        Intent(
+            slug="custom_development",
+            name="custom",
+            keywords=["integrar mercado pago", "mercado pago"],
+            knowledge_category="TECHNICAL",
+            active=True,
+            weight=1.2,
+        )
+    ]
+    result = engine.generate(
+        text="¿Pueden integrar Mercado Pago?",
+        assistant=_assistant(fallback_enabled=False, human_handoff_enabled=False),
+        intents=intents,
+        knowledge=knowledge,
+        prices=[],
+        services=[],
+        history=[_outbound(first_content)],
+    )
+    assert result.reply == second_content
+    assert result.ai_generated is False
+
+
+def test_duplicate_uses_llm_when_available():
+    provider = _FakeProvider("Otra forma de explicar Mercado Pago, según el sistema que ya tengan.")
+    engine = ResponseEngine(provider=provider)
+    content = "Podemos evaluar la integración con Mercado Pago según el sistema actual."
+    knowledge = [
+        KnowledgeItem(
+            category=KnowledgeCategory.TECHNICAL,
+            title="Integrar Mercado Pago",
+            content=content,
+            keywords=["mercado pago", "integrar"],
+            active=True,
+            priority=10,
+        )
+    ]
+    result = engine.generate(
+        text="¿Pueden integrar Mercado Pago?",
+        assistant=_assistant(fallback_enabled=True, human_handoff_enabled=False),
+        intents=[
+            Intent(
+                slug="custom_development",
+                name="custom",
+                keywords=["integrar mercado pago", "mercado pago"],
+                knowledge_category="TECHNICAL",
+                active=True,
+                weight=1.2,
+            )
+        ],
+        knowledge=knowledge,
+        prices=[],
+        services=[],
+        history=[_outbound(content)],
+    )
+    assert result.ai_generated is True
+    assert result.reply == provider.reply
+    assert provider.calls
+    assert "YA enviaste" in provider.calls[0]["system_prompt"]
+
+
+def test_repeated_price_keeps_authorized_numbers():
+    engine = ResponseEngine()
+    sid = uuid4()
+    intents = [
+        Intent(
+            slug="pricing_custom_system",
+            name="precio sistema",
+            keywords=["sistema", "stock", "cuanto sale", "cuesta"],
+            is_pricing=True,
+            active=True,
+            weight=1.3,
+        )
+    ]
+    services = [
+        Service(
+            id=sid,
+            name="Sistema de gestión",
+            description="stock ventas clientes",
+            category="sistema",
+            active=True,
+        )
+    ]
+    prices = [
+        Pricing(
+            service_id=sid,
+            price=700,
+            price_max=1200,
+            price_type=PriceType.STARTING_FROM,
+            active=True,
+            currency="USD",
+        )
+    ]
+    question = "¿Cuánto cuesta un sistema para gestionar stock, ventas y clientes?"
+    first = engine.generate(
+        text=question,
+        assistant=_assistant(fallback_enabled=False),
+        intents=intents,
+        knowledge=[],
+        prices=prices,
+        services=services,
+        history=[],
+    )
+    second = engine.generate(
+        text=question,
+        assistant=_assistant(fallback_enabled=False),
+        intents=intents,
+        knowledge=[],
+        prices=prices,
+        services=services,
+        history=[_outbound(first.reply)],
+    )
+    assert "700" in first.reply
+    assert "1.200" in first.reply
+    assert second.reply != first.reply
+    assert "700" in second.reply
+    assert "1.200" in second.reply
+    assert "800" not in second.reply
+
+
+def test_handoff_may_repeat_whatsapp_links():
+    engine = ResponseEngine()
+    intents = [
+        Intent(
+            slug="human_agent",
+            name="humano",
+            keywords=["hablar con alguien"],
+            requires_handoff=True,
+            active=True,
+            weight=1.5,
+        )
+    ]
+    first = engine.generate(
+        text="Quiero hablar con alguien",
+        assistant=_assistant(),
+        intents=intents,
+        knowledge=[],
+        prices=[],
+        services=[],
+        history=[],
+    )
+    second = engine.generate(
+        text="Quiero hablar con alguien",
+        assistant=_assistant(),
+        intents=intents,
+        knowledge=[],
+        prices=[],
+        services=[],
+        history=[_outbound(first.reply)],
+    )
+    assert first.handoff is True
+    assert second.handoff is True
+    assert second.reply == first.reply
+    assert "wa.me/5493764724207" in second.reply
+
+
+def test_restatement_can_reuse_authorized_fact():
+    engine = ResponseEngine()
+    template = "¡Claro! Podemos ayudarte con eso. ¿Informativa o con funciones?"
+    intents = [
+        Intent(
+            slug="services_web",
+            name="web",
+            keywords=["quiero una pagina", "necesito una web", "pagina para mi empresa", "decime de nuevo"],
+            response_template=template,
+            active=True,
+            weight=1.3,
+        )
+    ]
+    result = engine.generate(
+        text="Decime de nuevo lo de la página para mi empresa.",
+        assistant=_assistant(fallback_enabled=False),
+        intents=intents,
+        knowledge=[],
+        prices=[],
+        services=[],
+        history=[_outbound(template)],
+    )
+    assert result.reply == template

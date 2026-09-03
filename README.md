@@ -1,40 +1,41 @@
 # webXpert + Webxpert AI Assistant
 
-Sitio institucional de webXpert (React + Vite) y, en el mismo repositorio, el **Webxpert AI Assistant**: asistente comercial en el chat de la web, con panel administrativo.
+Sitio institucional de webXpert y, en el mismo repositorio, el **asistente comercial** del chat público más el **panel admin**.
 
-El canal activo es el **widget del sitio público**. El visitante habla con el asistente desde cualquier página.
+Producción: **un solo servicio en Railway** sirve el sitio, el API y el widget. PostgreSQL es un plugin aparte en el mismo proyecto. **Ya no se usa Vercel.**
 
 ---
 
 ## 1. Arquitectura
 
 ```text
-Visitante en www.webxpert.com.ar
-        ↓  widget (todas las páginas públicas)
+Visitante (www.webxpert.com.ar o *.up.railway.app)
+        ↓  botón Asistente (logo Webxpert + robotito)
 POST/GET /api/v1/chat/messages
         ↓
-FastAPI  →  MessageProcessor (channel=web)
+FastAPI  →  intake (nombre, apellido, teléfono)
               ↓
-    IntentClassifier (keywords)
+         MessageProcessor
               ↓
- FAQ / knowledge  ó  LLM acotado (OpenAI o Gemini)
+    IntentClassifier → Knowledge / Precios  ó  LLM (OpenAI o Gemini)
               ↓
-    LeadDetector + PostgreSQL
+    LeadDetector + handoff WhatsApp (Julio / Agustín)
               ↓
-Bandeja Admin (#/admin)  ·  respuesta en el mismo widget
-
-Frontend Vite (Vercel)
-  ├── sitio público  #/  #/servicios  #/contacto  …
-  ├── widget de chat (solo páginas públicas)
-  └── panel admin    #/admin
-
-Backend FastAPI (Railway)
-  └── PostgreSQL (plugin Railway o HeidiSQL)
+PostgreSQL
+              ↓
+Panel Admin  #/admin  ·  bandeja, leads, knowledge, precios
 ```
 
-La IA **no inventa precios ni plazos**. Si no hay un precio cargado en la base, responde que el proyecto se cotiza.
+Un contenedor Docker:
 
-`tenant_id` está en los modelos desde el día 1 (tenant actual: `webxpert`).
+1. Build Vite (`dist/`)
+2. FastAPI sirve el SPA en `/` y el API en `/api/v1` y `/health`
+
+Mismo origen: el front llama a `/api` relativo. `VITE_API_URL` queda **vacío**.
+
+La IA **no inventa precios ni plazos**. Si no hay un precio en la base, dice que se cotiza.
+
+Tenant actual: `webxpert` (`tenant_id` en todos los modelos).
 
 ---
 
@@ -42,9 +43,9 @@ La IA **no inventa precios ni plazos**. Si no hay un precio cargado en la base, 
 
 - Node.js 18+ y npm
 - Python 3.11+ (recomendado 3.12)
-- Docker Desktop **opcional** (PostgreSQL). Sin Docker, el backend usa SQLite en localhost.
-- Opcional: cuenta OpenAI y/o Google Gemini
-- Producción: cuenta Railway (API + PostgreSQL) y HeidiSQL 12+ si querés administrar la base a mano
+- Docker Desktop **opcional** (Postgres local). Sin Docker, el backend usa SQLite
+- Opcional: OpenAI y/o Gemini
+- Producción: Railway (sitio+API + PostgreSQL). HeidiSQL 12+ opcional para mirar la base
 
 ---
 
@@ -52,15 +53,13 @@ La IA **no inventa precios ni plazos**. Si no hay un precio cargado en la base, 
 
 ### Base de datos
 
-Sin Docker (recomendado para el primer arranque local): dejar `DATABASE_URL=sqlite:///./webxpert.db` en `backend/.env`. El API crea tablas y seed al iniciar.
+Sin Docker: en `backend/.env` dejar `DATABASE_URL=sqlite:///./webxpert.db`. El API crea tablas y seed al arrancar.
 
-Con Docker y PostgreSQL:
+Con Docker:
 
 ```bash
 docker compose up -d db
 ```
-
-y en `backend/.env`:
 
 ```text
 DATABASE_URL=postgresql+psycopg://webxpert:webxpert@localhost:5432/webxpert
@@ -79,11 +78,9 @@ python -m app.seed
 uvicorn app.main:app --reload --port 8000
 ```
 
-En desarrollo el API también intenta crear tablas y hacer seed al arrancar.
+Al arrancar también corre `create_all` + seed (idempotente: no duplica tenant/admin/knowledge; el catálogo de precios del seed se sincroniza).
 
 ### Frontend
-
-En la raíz del repo:
 
 ```bash
 copy .env.example .env
@@ -93,59 +90,61 @@ npm run dev
 
 - Sitio: http://localhost:5173/
 - Admin: http://localhost:5173/#/admin/login
-- API docs: http://localhost:8000/docs
+- Ayuda del panel: http://localhost:5173/#/admin/ayuda
+- API docs: http://localhost:8000/docs (oculto si `ENVIRONMENT=production`)
 - Health: http://localhost:8000/health
 
-Usuario inicial (solo local, definido en `backend/.env`):
+Usuario seed (solo local, `backend/.env`):
 
 ```text
-admin@webxpert.com
-changeme
+ADMIN_EMAIL / ADMIN_PASSWORD
 ```
 
-El chat público está en la esquina inferior derecha del sitio. Desde **Conversaciones** se puede simular un visitante sin abrir el widget.
+El login del panel **no precarga el email**. Hay ojito para ver la contraseña.
+
+El asistente está abajo a la derecha (logo Webxpert + “¿En qué te ayudo?”). En **Conversaciones** se puede simular un visitante.
 
 ---
 
 ## 4. Variables de entorno
 
-Nunca commitear `.env`. Usar los ejemplos:
+Nunca commitear `.env`.
 
 ### Raíz — `.env.example`
 
 | Variable | Uso |
 |---|---|
-| `VITE_API_URL` | Vacío en local (proxy Vite). En producción, URL pública del API. |
-| `VITE_FORMSPREE_FORM_ID` | Formulario de contacto del sitio (ya existía). |
+| `VITE_API_URL` | Vacío en local **y** en Railway (mismo origen). |
+| `VITE_FORMSPREE_FORM_ID` | Formulario de contacto del sitio. |
 
 ### Backend — `backend/.env.example`
 
 | Variable | Uso |
 |---|---|
-| `DATABASE_URL=postgresql+psycopg://webxpert:webxpert@localhost:5432/webxpert` | PostgreSQL |
-| `JWT_SECRET` | Cambiar sí o sí antes de producción |
-| `CORS_ORIGINS` | Orígenes del frontend, separados por coma |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Usuario seed |
-| `OPENAI_API_KEY` / `OPENAI_MODEL` | OpenAI. Vacío = ese proveedor no está listo |
-| `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini. El activo se elige en Admin → Assistant |
-| `LOG_MESSAGE_BODY` | `false` por privacidad |
+| `ENVIRONMENT` | `development` local. En Railway: **`production`**. |
+| `DATABASE_URL` | SQLite local o Postgres. Railway la inyecta al ligar el plugin. |
+| `JWT_SECRET` | En producción: **32+ caracteres**, no el valor `dev-only-...`. Si no, el API no arranca. |
+| `JWT_EXPIRE_MINUTES` | Default 720. |
+| `CORS_ORIGINS` | Local: Vite. En Railway, mismo origen; agregá el dominio propio. El `*.up.railway.app` se suma solo. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Usuario seed (solo la primera vez). |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | Opcional. Default modelo `gpt-4o-mini`. |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Opcional. Default `gemini-3.6-flash`. |
+| `LLM_MAX_OUTPUT_TOKENS` | Default 1536. |
+| `LOG_LEVEL` / `LOG_MESSAGE_BODY` | `LOG_MESSAGE_BODY=false` por privacidad. |
+
+`PORT` lo pone Railway. Start command: no hace falta. El Dockerfile ya corre `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`. **No** uses `uvicorn main:app`.
 
 ---
 
 ## 5. Base de datos
 
-PostgreSQL 16 vía Docker (local):
+11 tablas: `tenants`, `users`, `assistants`, `contacts`, `conversations`, `messages`, `leads`, `knowledge_items`, `intents`, `services`, `pricing`.
 
-```text
-usuario: webxpert
-password: webxpert
-db: webxpert
-puerto: 5432
-```
+Postgres local (Docker): usuario/password/db `webxpert`, puerto 5432.
 
-En producción usá el Postgres de Railway. El DDL para HeidiSQL está en `backend/schema.sql` (es PostgreSQL, no MySQL).
+DDL para HeidiSQL: `backend/schema.sql` (PostgreSQL, no MySQL). En Railway no hace falta ejecutarlo a mano: `create_all` + seed al boot.
 
-Modelos principales: `Tenant`, `User`, `Assistant`, `Contact`, `Conversation`, `Message`, `Lead`, `KnowledgeItem`, `Intent`, `Service`, `Pricing`.
+Contactos del chat: `name`, `last_name`, `mobile`. El `phone` interno del widget es `web:<visitor_id>`.
 
 ---
 
@@ -154,10 +153,8 @@ Modelos principales: `Tenant`, `User`, `Assistant`, `Contact`, `Conversation`, `
 ```bash
 cd backend
 alembic upgrade head
-alembic revision -m "descripcion"   # cuando haya cambios de schema
+alembic revision -m "descripcion"
 ```
-
-La revisión inicial crea el schema a partir de los modelos SQLAlchemy.
 
 ---
 
@@ -166,103 +163,101 @@ La revisión inicial crea el schema a partir de los modelos SQLAlchemy.
 Terminal 1: `uvicorn` en `backend/`  
 Terminal 2: `npm run dev` en la raíz  
 
-Si usás PostgreSQL: `docker compose up -d db` antes del API.  
+Vite proxy: `/api` y `/health` → `http://127.0.0.1:8000`.
 
-El proxy de Vite reenvía `/api` a `http://127.0.0.1:8000`.
-
-Para levantar API también en Docker:
+API + front en Docker:
 
 ```bash
 docker compose --profile full up --build
 ```
 
----
-
-## 8. Chat en la web
-
-El visitante habla con el mismo motor (FAQ, precios, IA, leads y derivación a humano) desde el widget.
-
-- Público: `POST /api/v1/chat/messages` y `GET /api/v1/chat/messages?visitor_token=`
-- El visitante no inicia sesión. El navegador guarda un `visitor_id` anónimo y un token JWT de chat.
-- Si un operador toma la conversación en Admin, el bot se apaga y las respuestas humanas aparecen en el widget (polling cada 4 s).
+(Ese compose usa el Dockerfile de `backend/`, solo API. El Dockerfile de la **raíz** es el de producción: sitio + API.)
 
 ---
 
-## 9. Configuración OpenAI y Gemini
+## 8. Chat público
 
-Las claves van en `backend/.env`. El proveedor **activo** se elige en **Admin → Assistant**.
+1. El visitante toca **Asistente**.
+2. Carga nombre, apellido y teléfono (intake). Sin eso no chatea.
+3. Pregunta. El motor usa intents, knowledge y precios; si hace falta, LLM.
+4. Si pide un humano: dos links WhatsApp (Julio Pintos `5493764724207`, Agustín Burgos `5493765050885`) con nombre y teléfono precargados. WhatsApp no envía solo: el usuario toca Enviar.
+5. La conversación queda en Admin. Estados: `BOT` → `WAITING_HUMAN` → `HUMAN` → `CLOSED`.
+6. **Cerrar borra los mensajes** de esa conversación. No se deshace.
 
-### OpenAI
+Endpoints:
 
-1. Crear una API key en OpenAI.
-2. `OPENAI_API_KEY` y opcionalmente `OPENAI_MODEL` (por defecto `gpt-4o-mini`).
+- `POST /api/v1/chat/messages` (intake o mensaje)
+- `GET /api/v1/chat/messages?visitor_token=`
 
-### Gemini
-
-1. Crear una API key en [Google AI Studio](https://aistudio.google.com/apikey).
-2. `GEMINI_API_KEY` y opcionalmente `GEMINI_MODEL` (por defecto `gemini-3.6-flash`).
-
-Si el proveedor elegido no tiene clave, el bot responde con FAQ, templates e información de la knowledge base. No llama al LLM.
-
-El system prompt se edita en **Admin → Assistant**, no está hardcodeado en el código de runtime (el seed carga el valor inicial).
+El visitante no se loguea. Hay `visitor_id` en localStorage y JWT de chat. Polling cada 4 s si un operador responde.
 
 ---
 
-## 10. Producción: Railway + HeidiSQL + Vercel
+## 9. Panel admin (`#/admin`)
 
-El frontend sigue en Vercel. El API y PostgreSQL van a Railway. No hace falta Docker en tu PC para este paso.
+| Ruta | Qué hace |
+|---|---|
+| `#/admin/login` | Email vacío + ojito en la clave |
+| `#/admin` | Dashboard |
+| `#/admin/conversaciones` | Bandeja, tomar / reactivar bot / cerrar, simular visitante |
+| `#/admin/leads` | Pipeline (NEW → … → WON/LOST) |
+| `#/admin/conocimiento` | FAQ y textos que el bot puede decir |
+| `#/admin/servicios` | Catálogo |
+| `#/admin/precios` | Únicos números que la IA puede citar |
+| `#/admin/assistant` | Prompt, tono, LLM, umbral, handoff |
+| `#/admin/ayuda` | Manual paso a paso |
 
-### 10.1 PostgreSQL en Railway y `schema.sql` en Heidi
+---
 
-1. En Railway: New Project → Empty Project → Add Service → **Database → PostgreSQL**.
-2. Abrí el servicio Postgres → Variables. Copiá host, puerto, user, password y database (o `DATABASE_PUBLIC_URL`).
-3. HeidiSQL 12+ → Nueva sesión:
-   - Network type: **PostgreSQL (TCP/IP)** (no MySQL)
-   - Host / User / Password / Port / Database de Railway
-   - SSL Mode: **require** si usás la URL pública
-4. Conectá → Query → abrí `backend/schema.sql` → Ejecutar (F9) sobre una base vacía.
-5. Ligá Postgres al servicio API (Add variable reference). Railway inyecta `DATABASE_URL`; el API la convierte a `postgresql+psycopg://`.
+## 10. OpenAI y Gemini
 
-El seed corre al arrancar el API (tenant, admin, knowledge, servicios). No hace falta insertar datos a mano en Heidi.
+Claves en `backend/.env` (Railway: variables del servicio). Proveedor activo: **Admin → Assistant**.
 
-Si el API arranca antes del SQL, `create_all` también crea las tablas. `schema.sql` es para controlarlo desde Heidi.
+Sin clave, el bot sigue con FAQ y knowledge. No llama al LLM.
 
-### 10.2 API en Railway
+System prompt: se edita en Admin → Assistant (el seed carga el inicial).
 
-1. New Service → GitHub (o deploy desde esta carpeta) → **Root Directory = `backend`**.
-2. El `Dockerfile` usa `$PORT`. Healthcheck: `GET /health`.
-3. Variables del servicio API:
+---
+
+## 11. Producción en Railway
+
+Sitio + API en **un** servicio. Postgres en otro, ligado al primero.
+
+### 11.1 Postgres
+
+1. Add Service → Database → PostgreSQL.
+2. En el servicio del sitio/API: Connect / Add variable reference (inyecta `DATABASE_URL`).
+3. HeidiSQL opcional: red **PostgreSQL**, SSL require si usás URL pública.
+
+### 11.2 Servicio web (sitio + API)
+
+1. New Service → GitHub de este repo.
+2. **Root Directory vacío** (raíz del repo, **no** `backend`). Usa el `Dockerfile` y `railway.toml` de la raíz.
+3. Variables:
 
 | Variable | Valor |
 |---|---|
 | `ENVIRONMENT` | `production` |
-| `DATABASE_URL` | la que inyecta el plugin Postgres (no la edites a mano) |
-| `JWT_SECRET` | string aleatorio de 32+ caracteres |
-| `CORS_ORIGINS` | `https://www.webxpert.com.ar,https://webxpert.com.ar` |
-| `ADMIN_EMAIL` | el login del panel |
-| `ADMIN_PASSWORD` | contraseña fuerte (solo se usa en el seed si el admin no existe) |
+| `DATABASE_URL` | la del plugin (no editar, no SQLite) |
+| `JWT_SECRET` | random 32+ caracteres |
+| `CORS_ORIGINS` | `https://www.webxpert.com.ar,https://webxpert.com.ar` si el dominio apunta acá |
+| `ADMIN_EMAIL` | login del panel |
+| `ADMIN_PASSWORD` | fuerte (solo seed si el admin no existe) |
 | `OPENAI_API_KEY` / `GEMINI_API_KEY` | opcional |
-| `OPENAI_MODEL` / `GEMINI_MODEL` | opcional |
 
-En producción `/docs` queda oculto. Si `JWT_SECRET` es el de desarrollo, el API **no arranca**.
+No pegues `uvicorn main:app`. Healthcheck: `GET /health`.
 
-Probá: `https://TU-SERVICIO.up.railway.app/health` → `{"status":"ok",...}`.
+Pruebas:
 
-### 10.3 Frontend en Vercel
+- `https://TU-SERVICIO.up.railway.app/health` → `{"status":"ok","service":"webxpert-assistant"}`
+- `https://TU-SERVICIO.up.railway.app/` → el sitio (no Not Found)
+- `https://TU-SERVICIO.up.railway.app/#/admin` → panel
 
-En el proyecto Vite (build de producción):
-
-| Variable | Valor |
-|---|---|
-| `VITE_API_URL` | `https://TU-SERVICIO.up.railway.app` (sin barra final) |
-
-Rebuild de Vercel después de cambiarla. El admin queda en `https://www.webxpert.com.ar/#/admin`.
-
-Login seed (cambiá la clave en Railway): `admin@webxpert.com` / la `ADMIN_PASSWORD` que definiste.
+Logs `handled request` después de `Starting Container` son el proxy de Railway, no un error.
 
 ---
 
-## 11. Testing
+## 12. Testing
 
 ```bash
 cd backend
@@ -270,40 +265,51 @@ cd backend
 pytest -q
 ```
 
-Cubre: intents, protección de precios, scoring de leads, fallback/handoff, chat web público, CRUD de knowledge/services/pricing, conversaciones simuladas.
+Cubre intents, price guard, leads, handoff WhatsApp, chat con intake, CRUD, conversaciones.
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Problema | Qué revisar |
 |---|---|
-| Admin no carga datos | Backend en `:8000`, login hecho, `VITE_API_URL` vacío en local |
-| `connection refused` Postgres | Usá SQLite en local, o instalá Docker y `docker compose up -d db` |
-| El bot no responde | Assistant `enabled`, conversación `bot_enabled`, no está en `WAITING_HUMAN` |
-| Inventa precios | No debería: revisar ítems de **Precios** activos; el engine usa solo la DB |
-| OpenAI error | Clave, billing, o dejar la clave vacía para modo FAQ |
-| CORS en producción | `CORS_ORIGINS` con el origen exacto del frontend |
+| `/` da Not Found | Root Directory tiene que estar **vacío** y el deploy tiene que usar el Dockerfile de la raíz |
+| API no arranca en prod | `JWT_SECRET` corto o `dev-only-...` |
+| Sitio sin chat / admin sin datos | Mismo origen; no hace falta `VITE_API_URL` |
+| `connection refused` Postgres | SQLite local, o `docker compose up -d db` |
+| Bot mudo | Assistant `enabled`, chat `bot_enabled`, no está en `WAITING_HUMAN` |
+| Inventa precios | Admin → Precios; el engine solo usa la DB |
+| CORS | `CORS_ORIGINS` + dominio Railway automático |
+| Login con email ya escrito | Ya no: el campo arranca vacío. Si el browser lo completa, es el gestor de contraseñas |
 
 ---
 
-## Sitio público (ya existente)
+## Sitio público
 
-SPA React 19 + Vite + Tailwind + HashRouter + Formspree.
+SPA React 19 + Vite + Tailwind + HashRouter + Formspree + Framer Motion.
 
 ```text
 #/  #/servicios  #/servicios/:slug  #/nosotros  #/contacto  #/privacidad  #/terminos
+#/admin  …
 ```
 
-No reemplazar esas rutas ni el formulario de contacto. El panel admin es una rama de rutas nueva (`#/admin`).
+Widget de asistente en las páginas públicas (no en el admin).
+
+Precios de referencia publicados (USD, estimativos, −40 % respecto del listado anterior): landing 210–360, institucional 420–720, e-commerce 720–1.200, a medida desde 1.200, sistemas 1.500–2.400, auditorías 150–300, SEO 180–480.
 
 ---
 
-## Estructura nueva relevante
+## Estructura
 
 ```text
-backend/app/          FastAPI, modelos, AI engine, chat web
+Dockerfile              producción: Vite + FastAPI
+railway.toml            healthcheck /health
+docker-compose.yml      Postgres local (+ API opcional)
+src/                    sitio, widget, panel admin
+src/admin/pages/HelpPage.tsx
+src/chat/WebChatWidget.tsx
+backend/app/            FastAPI, modelos, AI, seed
+backend/schema.sql      DDL Postgres / HeidiSQL
 backend/tests/
-src/admin/            Panel TypeScript (identidad visual webXpert)
-docker-compose.yml    PostgreSQL local
+ANALISIS-DE-VALOR.md    valuación del producto (USD)
 ```
